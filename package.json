@@ -1,0 +1,37 @@
+{
+  "name": "file-mcp",
+  "version": "1.0.0",
+  "description": "MCP 服务：供 AI 读写 DOCX、PDF、Excel 文件",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "file-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "keywords": ["mcp", "docx", "pdf", "excel", "modelcontextprotocol"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "docx": "^9.6.0",
+    "mammoth": "^1.11.0",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^1.1.1",
+    "xlsx": "^0.18.5",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "capabilities": {
+    "tools": {}
+  }
+}
