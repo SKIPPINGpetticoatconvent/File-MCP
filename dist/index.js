@@ -2,12 +2,154 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { readDocx, writeDocx, readPdf, writePdf, readExcel, writeExcel, } from "./handlers.js";
+import { readDocx, writeDocx, readPdf, writePdf, readExcel, writeExcel, readCommonTextFile, writeCommonTextFile, readJsonFile, writeJsonFile, readCsvFile, writeCsvFile, readPptx, writePptx, } from "./handlers.js";
 const server = new McpServer({
     name: "file-mcp",
     version: "1.0.0",
 });
 // ----- DOCX -----
+server.tool("read_text_file", {
+    file_path: z
+        .string()
+        .describe("文本文件路径（支持 .txt/.md/.markdown/.html/.htm/.xml/.yaml/.yml）"),
+}, async ({ file_path }) => {
+    try {
+        const text = await readCommonTextFile(file_path);
+        return { content: [{ type: "text", text }] };
+    }
+    catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+            content: [{ type: "text", text: `读取文本文件失败: ${message}` }],
+            isError: true,
+        };
+    }
+});
+server.tool("write_text_file", {
+    file_path: z
+        .string()
+        .describe("文本文件路径（支持 .txt/.md/.markdown/.html/.htm/.xml/.yaml/.yml）"),
+    content: z.string().describe("写入内容"),
+}, async ({ file_path, content }) => {
+    try {
+        await writeCommonTextFile(file_path, content);
+        return {
+            content: [{ type: "text", text: `已成功写入: ${file_path}` }],
+        };
+    }
+    catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+            content: [{ type: "text", text: `写入文本文件失败: ${message}` }],
+            isError: true,
+        };
+    }
+});
+server.tool("read_json_file", {
+    file_path: z.string().describe("JSON 文件路径（.json）"),
+}, async ({ file_path }) => {
+    try {
+        const jsonData = await readJsonFile(file_path);
+        return {
+            content: [{ type: "text", text: JSON.stringify(jsonData, null, 2) }],
+        };
+    }
+    catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+            content: [{ type: "text", text: `读取 JSON 失败: ${message}` }],
+            isError: true,
+        };
+    }
+});
+server.tool("write_json_file", {
+    file_path: z.string().describe("JSON 文件路径（.json）"),
+    data: z.unknown().describe("要写入的 JSON 数据"),
+}, async ({ file_path, data }) => {
+    try {
+        await writeJsonFile(file_path, data);
+        return {
+            content: [{ type: "text", text: `已成功写入: ${file_path}` }],
+        };
+    }
+    catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+            content: [{ type: "text", text: `写入 JSON 失败: ${message}` }],
+            isError: true,
+        };
+    }
+});
+server.tool("read_csv_file", {
+    file_path: z.string().describe("CSV 文件路径（.csv）"),
+}, async ({ file_path }) => {
+    try {
+        const rows = await readCsvFile(file_path);
+        return {
+            content: [{ type: "text", text: JSON.stringify(rows, null, 2) }],
+        };
+    }
+    catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+            content: [{ type: "text", text: `读取 CSV 失败: ${message}` }],
+            isError: true,
+        };
+    }
+});
+server.tool("write_csv_file", {
+    file_path: z.string().describe("CSV 文件路径（.csv）"),
+    data: z.array(z.record(z.unknown())).describe("要写入的行数据（对象数组）"),
+}, async ({ file_path, data }) => {
+    try {
+        await writeCsvFile(file_path, data);
+        return {
+            content: [{ type: "text", text: `已成功写入: ${file_path}` }],
+        };
+    }
+    catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+            content: [{ type: "text", text: `写入 CSV 失败: ${message}` }],
+            isError: true,
+        };
+    }
+});
+server.tool("read_pptx", {
+    file_path: z.string().describe("PPT 文件路径（.pptx）"),
+}, async ({ file_path }) => {
+    try {
+        const text = await readPptx(file_path);
+        return { content: [{ type: "text", text }] };
+    }
+    catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+            content: [{ type: "text", text: `读取 PPT 失败: ${message}` }],
+            isError: true,
+        };
+    }
+});
+server.tool("write_pptx", {
+    file_path: z.string().describe("PPT 文件路径（.pptx）"),
+    content: z
+        .string()
+        .describe("要写入的文本，使用独占一行的 --- 作为分隔可生成多页幻灯片"),
+}, async ({ file_path, content }) => {
+    try {
+        await writePptx(file_path, content);
+        return {
+            content: [{ type: "text", text: `已成功写入: ${file_path}` }],
+        };
+    }
+    catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+            content: [{ type: "text", text: `写入 PPT 失败: ${message}` }],
+            isError: true,
+        };
+    }
+});
 server.tool("read_docx", {
     file_path: z.string().describe("DOCX 文件的路径（绝对或相对）"),
 }, async ({ file_path }) => {

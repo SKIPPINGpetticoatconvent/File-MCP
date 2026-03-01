@@ -6,9 +6,12 @@ import mammoth from "mammoth";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, } from "docx";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import * as XLSX from "xlsx";
+import JSZip from "jszip";
 const require = createRequire(import.meta.url);
 // pdf-parse 为 CommonJS，在 ESM 中通过 createRequire 引入
 const pdfParse = require("pdf-parse");
+// pptxgenjs 为 CommonJS，在 ESM 中通过 createRequire 引入
+const PptxGenJS = require("pptxgenjs");
 function isExistingDirectory(dirPath) {
     if (!dirPath || !path.isAbsolute(dirPath)) {
         return false;
@@ -62,6 +65,149 @@ function resolveFilePath(inputPath) {
     // 默认自动使用当前打开的工作区路径，其次回退到进程 cwd
     const baseDir = detectDefaultRoot();
     return path.resolve(baseDir, inputPath);
+}
+function ensurePptxExt(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext !== ".pptx") {
+        throw new Error(`不支持的 PPT 扩展名: ${ext || "(无扩展名)"}，仅支持 .pptx`);
+    }
+}
+function decodeXmlEntities(input) {
+    return input
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+}
+const COMMON_TEXT_EXTENSIONS = new Set([
+    ".txt",
+    ".md",
+    ".markdown",
+    ".html",
+    ".htm",
+    ".xml",
+    ".yaml",
+    ".yml",
+]);
+function ensureExt(filePath, extensions, typeName) {
+    const ext = path.extname(filePath).toLowerCase();
+    if (!extensions.has(ext)) {
+        throw new Error(`不支持的 ${typeName} 扩展名: ${ext || "(无扩展名)"}`);
+    }
+}
+export async function readCommonTextFile(filePath) {
+    ensureExt(filePath, COMMON_TEXT_EXTENSIONS, "文本文件");
+    const resolved = resolveFilePath(filePath);
+    return fs.readFile(resolved, "utf8");
+}
+export async function writeCommonTextFile(filePath, content) {
+    ensureExt(filePath, COMMON_TEXT_EXTENSIONS, "文本文件");
+    const resolved = resolveFilePath(filePath);
+    await fs.writeFile(resolved, content, "utf8");
+}
+export async function readJsonFile(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext !== ".json") {
+        throw new Error(`不支持的 JSON 扩展名: ${ext || "(无扩展名)"}`);
+    }
+    const resolved = resolveFilePath(filePath);
+    const text = await fs.readFile(resolved, "utf8");
+    return JSON.parse(text);
+}
+export async function writeJsonFile(filePath, data) {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext !== ".json") {
+        throw new Error(`不支持的 JSON 扩展名: ${ext || "(无扩展名)"}`);
+    }
+    const resolved = resolveFilePath(filePath);
+    await fs.writeFile(resolved, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+}
+export async function readCsvFile(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext !== ".csv") {
+        throw new Error(`不支持的 CSV 扩展名: ${ext || "(无扩展名)"}`);
+    }
+    const resolved = resolveFilePath(filePath);
+    const csvText = await fs.readFile(resolved, "utf8");
+    const wb = XLSX.read(csvText, { type: "string" });
+    const firstSheetName = wb.SheetNames[0];
+    if (!firstSheetName) {
+        return [];
+    }
+    const sheet = wb.Sheets[firstSheetName];
+    return XLSX.utils.sheet_to_json(sheet);
+}
+export async function writeCsvFile(filePath, data) {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext !== ".csv") {
+        throw new Error(`不支持的 CSV 扩展名: ${ext || "(无扩展名)"}`);
+    }
+    const resolved = resolveFilePath(filePath);
+    const ws = XLSX.utils.json_to_sheet(data);
+    const csvText = XLSX.utils.sheet_to_csv(ws);
+    await fs.writeFile(resolved, csvText, "utf8");
+}
+/**
+ * 读取 PPTX：提取每页文本
+ */
+export async function readPptx(filePath) {
+    ensurePptxExt(filePath);
+    const resolved = resolveFilePath(filePath);
+    const buf = await fs.readFile(resolved);
+    const zip = await JSZip.loadAsync(buf);
+    const slideFiles = Object.keys(zip.files)
+        .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
+        .sort((a, b) => {
+        const aNum = Number(a.match(/slide(\d+)\.xml/i)?.[1] ?? "0");
+        const bNum = Number(b.match(/slide(\d+)\.xml/i)?.[1] ?? "0");
+        return aNum - bNum;
+    });
+    const pages = [];
+    for (const slidePath of slideFiles) {
+        const xml = await zip.file(slidePath)?.async("string");
+        if (!xml) {
+            continue;
+        }
+        const texts = [...xml.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g)].map((m) => decodeXmlEntities(m[1]).trim());
+        const cleaned = texts.filter((t) => t.length > 0).join("\n");
+        pages.push(cleaned);
+    }
+    if (pages.length === 0) {
+        return "";
+    }
+    return pages
+        .map((pageText, idx) => `# Slide ${idx + 1}\n${pageText}`)
+        .join("\n\n");
+}
+/**
+ * 写入 PPTX：用 --- 分割多页
+ */
+export async function writePptx(filePath, content) {
+    ensurePptxExt(filePath);
+    const resolved = resolveFilePath(filePath);
+    const pptx = new PptxGenJS();
+    pptx.layout = "LAYOUT_WIDE";
+    const rawSlides = content
+        .split(/\r?\n-{3,}\r?\n/g)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    const slides = rawSlides.length > 0 ? rawSlides : [content.trim()];
+    for (const slideText of slides) {
+        const slide = pptx.addSlide();
+        slide.addText(slideText || " ", {
+            x: 0.6,
+            y: 0.6,
+            w: 12.0,
+            h: 6.0,
+            fontSize: 20,
+            color: "1F2937",
+            valign: "top",
+            fit: "shrink",
+            breakLine: false,
+        });
+    }
+    await pptx.writeFile({ fileName: resolved });
 }
 /**
  * 读取 DOCX 为纯文本（基于 HTML 转 Markdown 风格）

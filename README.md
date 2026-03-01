@@ -1,6 +1,10 @@
 # file-mcp
 
 AI 可调用的 MCP 文件服务，支持读写：
+- `TXT/MD/HTML/XML/YAML`
+- `JSON`
+- `CSV`
+- `PPT (.pptx)`
 - `DOCX`
 - `PDF`
 - `Excel (.xlsx/.xls)`
@@ -22,6 +26,14 @@ npm start
 
 ## Tools
 
+- `read_text_file(file_path)`（.txt/.md/.markdown/.html/.htm/.xml/.yaml/.yml）
+- `write_text_file(file_path, content)`（同上）
+- `read_json_file(file_path)`（.json）
+- `write_json_file(file_path, data)`（.json）
+- `read_csv_file(file_path)`（.csv）
+- `write_csv_file(file_path, data)`（.csv）
+- `read_pptx(file_path)`（.pptx）
+- `write_pptx(file_path, content)`（.pptx，使用 `---` 分隔多页）
 - `read_docx(file_path)`
 - `write_docx(file_path, content)`
 - `read_pdf(file_path)`

@@ -12,7 +12,13 @@
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts"
   },
-  "keywords": ["mcp", "docx", "pdf", "excel", "modelcontextprotocol"],
+  "keywords": [
+    "mcp",
+    "docx",
+    "pdf",
+    "excel",
+    "modelcontextprotocol"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=18"
@@ -20,9 +26,11 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "docx": "^9.6.0",
+    "jszip": "^3.10.1",
     "mammoth": "^1.11.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
+    "pptxgenjs": "^4.0.1",
     "xlsx": "^0.18.5",
     "zod": "^3.23.0"
   },
