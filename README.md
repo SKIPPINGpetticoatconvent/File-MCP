@@ -83,9 +83,28 @@ npm start
 
 ## 4) 注意事项
 
-- 建议对 `file_path` 使用绝对路径，避免工作目录差异导致找不到文件。
+- 相对路径会默认基于“当前工作区路径”解析（优先读取 `MCP_DEFAULT_ROOT` / `CURSOR_WORKSPACE_PATH` 等环境变量，最后回退到进程 `cwd`）。
+- 如需强制指定默认目录，可在 MCP 配置里加 `env.MCP_DEFAULT_ROOT`。
 - `write_pdf` 是文本写入，不保留原始 PDF 排版。
 - `read_docx` 与 `read_pdf` 以文本抽取为主，不保证 100% 还原复杂格式（表格、图文混排等）。
+
+示例（固定默认根目录）：
+
+```json
+{
+  "mcpServers": {
+    "file-mcp": {
+      "command": "node",
+      "args": [
+        "/Users/mac/Documents/WorkCodeSpace/File-MCP/dist/index.js"
+      ],
+      "env": {
+        "MCP_DEFAULT_ROOT": "/Users/mac/Documents/你的项目目录"
+      }
+    }
+  }
+}
+```
 
 ## 5) 参考
 

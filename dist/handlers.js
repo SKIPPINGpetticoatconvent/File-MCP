@@ -8,11 +8,24 @@ import * as XLSX from "xlsx";
 const require = createRequire(import.meta.url);
 // pdf-parse 为 CommonJS，在 ESM 中通过 createRequire 引入
 const pdfParse = require("pdf-parse");
+function resolveFilePath(inputPath) {
+    if (path.isAbsolute(inputPath)) {
+        return inputPath;
+    }
+    // 优先使用用户当前打开的工作区路径，其次回退到进程 cwd
+    const baseDir = process.env.MCP_DEFAULT_ROOT ||
+        process.env.CURSOR_WORKSPACE_PATH ||
+        process.env.CURSOR_PROJECT_PATH ||
+        process.env.WORKSPACE_PATH ||
+        process.env.PWD ||
+        process.cwd();
+    return path.resolve(baseDir, inputPath);
+}
 /**
  * 读取 DOCX 为纯文本（基于 HTML 转 Markdown 风格）
  */
 export async function readDocx(filePath) {
-    const resolved = path.resolve(filePath);
+    const resolved = resolveFilePath(filePath);
     const buf = await fs.readFile(resolved);
     const result = await mammoth.extractRawText({ buffer: buf });
     return result.value;
@@ -21,7 +34,7 @@ export async function readDocx(filePath) {
  * 将纯文本写入 DOCX
  */
 export async function writeDocx(filePath, content) {
-    const resolved = path.resolve(filePath);
+    const resolved = resolveFilePath(filePath);
     const lines = content.split(/\r?\n/).filter((l) => l.trim() !== "");
     const children = lines.map((line) => {
         const isHeading = /^#+\s/.test(line);
@@ -53,7 +66,7 @@ export async function writeDocx(filePath, content) {
  * 读取 PDF 文本
  */
 export async function readPdf(filePath) {
-    const resolved = path.resolve(filePath);
+    const resolved = resolveFilePath(filePath);
     const buf = await fs.readFile(resolved);
     const data = await pdfParse(buf);
     return typeof data.text === "string" ? data.text : String(data.text ?? "");
@@ -62,7 +75,7 @@ export async function readPdf(filePath) {
  * 将文本写入新 PDF（每段一段落）
  */
 export async function writePdf(filePath, content) {
-    const resolved = path.resolve(filePath);
+    const resolved = resolveFilePath(filePath);
     const doc = await PDFDocument.create();
     const font = await doc.embedFont(StandardFonts.Helvetica);
     const lines = content.split(/\r?\n/).filter((l) => l.trim() !== "");
@@ -99,7 +112,7 @@ export async function writePdf(filePath, content) {
  * 读取 Excel：返回首个 sheet 的 JSON 数组及 sheet 名列表
  */
 export async function readExcel(filePath) {
-    const resolved = path.resolve(filePath);
+    const resolved = resolveFilePath(filePath);
     const buf = await fs.readFile(resolved);
     const wb = XLSX.read(buf, { type: "buffer" });
     const sheets = wb.SheetNames;
@@ -114,7 +127,7 @@ export async function readExcel(filePath) {
  * 将 JSON 数组写入 Excel
  */
 export async function writeExcel(filePath, data, sheetName = "Sheet1") {
-    const resolved = path.resolve(filePath);
+    const resolved = resolveFilePath(filePath);
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
