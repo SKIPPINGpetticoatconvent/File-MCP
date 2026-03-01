@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import * as nodeFs from "node:fs";
 import * as path from "node:path";
 import { createRequire } from "node:module";
 import mammoth from "mammoth";
@@ -8,17 +9,58 @@ import * as XLSX from "xlsx";
 const require = createRequire(import.meta.url);
 // pdf-parse 为 CommonJS，在 ESM 中通过 createRequire 引入
 const pdfParse = require("pdf-parse");
+function isExistingDirectory(dirPath) {
+    if (!dirPath || !path.isAbsolute(dirPath)) {
+        return false;
+    }
+    try {
+        return nodeFs.statSync(dirPath).isDirectory();
+    }
+    catch {
+        return false;
+    }
+}
+function detectDefaultRoot() {
+    const prioritizedCandidates = [
+        process.env.MCP_DEFAULT_ROOT,
+        // Cursor/VSCode 常见工作区环境变量（若客户端注入）
+        process.env.CURSOR_WORKSPACE_PATH,
+        process.env.CURSOR_PROJECT_PATH,
+        process.env.WORKSPACE_PATH,
+        process.env.VSCODE_CWD,
+        process.env.PROJECT_ROOT,
+    ].filter((v) => Boolean(v));
+    for (const candidate of prioritizedCandidates) {
+        if (isExistingDirectory(candidate)) {
+            return candidate;
+        }
+    }
+    // 再从环境变量里自动探测可能的工作区路径，尽量不要求用户手动配置
+    const dynamicCandidates = Object.entries(process.env)
+        .filter(([key, value]) => {
+        if (!value)
+            return false;
+        const normalizedKey = key.toUpperCase();
+        const maybeWorkspace = normalizedKey.includes("WORKSPACE") ||
+            normalizedKey.includes("PROJECT") ||
+            normalizedKey.includes("ROOT") ||
+            normalizedKey.includes("CURSOR");
+        return maybeWorkspace && path.isAbsolute(value);
+    })
+        .map(([, value]) => value);
+    for (const candidate of dynamicCandidates) {
+        if (isExistingDirectory(candidate)) {
+            return candidate;
+        }
+    }
+    return process.cwd();
+}
 function resolveFilePath(inputPath) {
     if (path.isAbsolute(inputPath)) {
         return inputPath;
     }
-    // 优先使用用户当前打开的工作区路径，其次回退到进程 cwd
-    const baseDir = process.env.MCP_DEFAULT_ROOT ||
-        process.env.CURSOR_WORKSPACE_PATH ||
-        process.env.CURSOR_PROJECT_PATH ||
-        process.env.WORKSPACE_PATH ||
-        process.env.PWD ||
-        process.cwd();
+    // 默认自动使用当前打开的工作区路径，其次回退到进程 cwd
+    const baseDir = detectDefaultRoot();
     return path.resolve(baseDir, inputPath);
 }
 /**

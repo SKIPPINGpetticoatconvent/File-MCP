@@ -35,11 +35,8 @@ npm start
 {
   "mcpServers": {
     "file-mcp": {
-      "command": "node",
-      "args": ["/Users/mac/Documents/WorkCodeSpace/File-MCP/dist/index.js"],
-      "env": {
-        "MCP_DEFAULT_ROOT": "/Users/mac/Documents/你的项目目录"
-      }
+      "command": "npx",
+      "args": ["tsx", "/Users/mac/Documents/WorkCodeSpace/File-MCP/src/index.ts"]
     }
   }
 }
@@ -48,8 +45,8 @@ npm start
 ## 路径规则
 
 - 绝对路径：直接使用
-- 相对路径：默认按当前工作区解析
-- 可用 `MCP_DEFAULT_ROOT` 强制指定默认根目录
+- 相对路径：默认自动按当前 Cursor 打开的工作区解析
+- 如有特殊需求，仍可用 `MCP_DEFAULT_ROOT` 强制覆盖默认根目录
 
 ## 参考
 
